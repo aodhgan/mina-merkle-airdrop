@@ -1,4 +1,4 @@
-import { Add } from './Add';
+import { MerkleAirdrop } from './MerkleAirdrop';
 import {
   isReady,
   shutdown,
@@ -23,7 +23,7 @@ function createLocalBlockchain() {
 }
 
 async function localDeploy(
-  zkAppInstance: Add,
+  zkAppInstance: MerkleAirdrop,
   zkAppPrivatekey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
@@ -56,14 +56,14 @@ describe('Add', () => {
   });
 
   it('generates and deploys the `Add` smart contract', async () => {
-    const zkAppInstance = new Add(zkAppAddress);
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     const num = zkAppInstance.num.get();
     expect(num).toEqual(Field.one);
   });
 
   it('correctly updates the num state on the `Add` smart contract', async () => {
-    const zkAppInstance = new Add(zkAppAddress);
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     const txn = await Mina.transaction(deployerAccount, () => {
       zkAppInstance.update();

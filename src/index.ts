@@ -1,3 +1,3 @@
-import { Add } from './Add.js';
+import { MerkleAirdrop } from './MerkleAirdrop.js';
 
-export { Add };
+export { MerkleAirdrop };

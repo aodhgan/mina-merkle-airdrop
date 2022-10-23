@@ -45,5 +45,8 @@
   },
   "peerDependencies": {
     "snarkyjs": "^0.6.0"
+  },
+  "dependencies": {
+    "ts-node": "^10.9.1"
   }
 }
