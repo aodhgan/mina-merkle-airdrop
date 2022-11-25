@@ -1,3 +1,4 @@
-import { MerkleAirdrop } from './MerkleAirdrop.js';
+// import { MerkleAirdrop } from './MerkleAirdrop.js';
 
-export { MerkleAirdrop };
+// export { MerkleAirdrop };
+export {};
