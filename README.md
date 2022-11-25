@@ -1,8 +1,16 @@
-# Mina zkApp: Test
+[![CI](https://github.com/aodhgan/mina-merkle-airdrop/actions/workflows/ci.yml/badge.svg)](https://github.com/aodhgan/mina-merkle-airdrop/actions/workflows/ci.yml)
 
-This template uses TypeScript.
+# Merkle Airdrop
 
+
+
+This is an implementation of a private Merkle Tree based airdrop built using Mina smart contracts. 
+
+# Installation
+**Note: these commands do not work with `yarn`**
 ## How to build
+
+
 
 ```sh
 npm run build
@@ -12,7 +20,6 @@ npm run build
 
 ```sh
 npm run test
-npm run testw # watch mode
 ```
 
 ## How to run coverage
@@ -20,7 +27,3 @@ npm run testw # watch mode
 ```sh
 npm run coverage
 ```
-
-## License
-
-[Apache-2.0](LICENSE)
