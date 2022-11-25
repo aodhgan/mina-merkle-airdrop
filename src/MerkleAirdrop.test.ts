@@ -2,7 +2,6 @@ import { MerkleAirdrop, Account, MerkleWitness } from './MerkleAirdrop';
 import {
   isReady,
   shutdown,
-  Field,
   Mina,
   PrivateKey,
   PublicKey,
@@ -80,29 +79,26 @@ describe('MerkleAirdrop', () => {
     setTimeout(shutdown, 0);
   });
 
-  it('generates and deploys the `MerkleAirdrop` smart contract', async () => {
+  it('deploys the `MerkleAirdrop` smart contract and setsPreImage', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    console.log(`test one deployed!`);
     await setPreImage(deployerAccount, zkAppPrivateKey, zkAppInstance);
-    // const num = zkAppInstance.num.get();
-    // expect(num).toEqual(Field.one);
+
+    expect(zkAppInstance.commitment.get()).toEqual(initialCommitment);
   });
 
   it('correctly updates the merkle root on the `MerkleAirdrop` smart contract', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    console.log(`test two deployed!`);
     await setPreImage(deployerAccount, zkAppPrivateKey, zkAppInstance);
+
     makeGuess(
       'Alice',
       BigInt(0),
-      22,
       deployerAccount,
       zkAppPrivateKey,
       zkAppInstance
     );
-    console.log('guessed!');
   });
 });
 
@@ -124,10 +120,9 @@ async function setPreImage(
 async function makeGuess(
   name: Names,
   index: bigint,
-  guess: number,
   feePayer: any,
   zkappKey: any,
-  leaderboardZkApp: MerkleAirdrop
+  merkleAirdropZkApp: MerkleAirdrop
 ) {
   let account = Accounts.get(name)!;
   let w = Tree.getWitness(index);
@@ -135,9 +130,9 @@ async function makeGuess(
 
   let tx = await Mina.transaction(feePayer, () => {
     console.log('test guessing...');
-    leaderboardZkApp.guessPreimage(Field(guess), account, witness);
+    merkleAirdropZkApp.guessPreimage(account, witness);
     console.log('returned from guessing');
-    leaderboardZkApp.sign(zkappKey);
+    merkleAirdropZkApp.sign(zkappKey);
   });
 
   await tx.prove();
@@ -148,7 +143,7 @@ async function makeGuess(
   Tree.setLeaf(index, account.hash());
   console.log(
     'leaderboardZkApp.commitment.get()',
-    leaderboardZkApp.commitment.get()
+    merkleAirdropZkApp.commitment.get()
   );
-  leaderboardZkApp.commitment.get().assertEquals(Tree.getRoot());
+  merkleAirdropZkApp.commitment.get().assertEquals(Tree.getRoot());
 }
