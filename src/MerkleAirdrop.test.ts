@@ -82,7 +82,7 @@ describe('MerkleAirdrop', () => {
   it('deploys the `MerkleAirdrop` smart contract and setsPreImage', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    await setPreImage(deployerAccount, zkAppPrivateKey, zkAppInstance);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
     expect(zkAppInstance.commitment.get()).toEqual(initialCommitment);
   });
@@ -90,7 +90,7 @@ describe('MerkleAirdrop', () => {
   it('correctly updates the merkle root on the `MerkleAirdrop` smart contract', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    await setPreImage(deployerAccount, zkAppPrivateKey, zkAppInstance);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
     makeGuess(
       'Alice',
@@ -100,17 +100,68 @@ describe('MerkleAirdrop', () => {
       zkAppInstance
     );
   });
+
+  it('check Alice is in the set', async () => {
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
+
+    await checkInclusion(
+      'Alice',
+      BigInt(0),
+      deployerAccount,
+      zkAppPrivateKey,
+      zkAppInstance
+    );
+  });
+
+  it('throws when randomer is not in set', async () => {
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
+    try {
+      expect(
+        await checkInclusion(
+          'Bob',
+          BigInt(0),
+          deployerAccount,
+          zkAppPrivateKey,
+          zkAppInstance
+        )
+      ).toThrow();
+    } catch (e) {
+      console.log(e);
+    }
+  });
 });
 
-async function setPreImage(
+async function setCommitment(
+  feePayer: any,
+  zkappKey: any,
+  merkleZkApp: MerkleAirdrop
+) {
+  let tx = await Mina.transaction(feePayer, () => {
+    console.log('setting preimage to ...', initialCommitment.toString());
+    merkleZkApp.setCommitment(initialCommitment);
+    console.log('returned from setting preimage');
+    merkleZkApp.sign(zkappKey);
+  });
+  await tx.prove();
+  await tx.send();
+}
+
+async function checkInclusion(
+  name: Names,
+  index: bigint, // do we need index? can we just loop in the tree?
   feePayer: any,
   zkappKey: any,
   leaderboardZkApp: MerkleAirdrop
 ) {
   let tx = await Mina.transaction(feePayer, () => {
-    console.log('setting preimage to ...', initialCommitment.toString());
-    leaderboardZkApp.setPreImage(initialCommitment);
-    console.log('returned from setting preimage');
+    let account = Accounts.get(name)!;
+    let w = Tree.getWitness(index);
+    let witness = new MerkleWitness(w);
+    leaderboardZkApp.checkInclusion(account, witness);
     leaderboardZkApp.sign(zkappKey);
   });
   await tx.prove();

@@ -76,7 +76,7 @@ export class MerkleAirdrop extends SmartContract {
   }
 
   @method
-  setPreImage(preImage: Field) {
+  setCommitment(preImage: Field) {
     console.log(`contract setting preImage to `, preImage.toString());
     this.commitment.set(preImage);
   }
@@ -99,5 +99,18 @@ export class MerkleAirdrop extends SmartContract {
     let newCommitment = path.calculateRoot(newAccount.hash());
 
     this.commitment.set(newCommitment);
+  }
+
+  @method
+  checkInclusion(account: Account, path: MerkleWitness) {
+    console.log('checking inclusion for account', account.publicKey.toString());
+
+    // we fetch the on-chain commitment
+    let commitment = this.commitment.get();
+    this.commitment.assertEquals(commitment);
+
+    // we check that the account is within the committed Merkle Tree
+    console.log('checking acccount is in tree');
+    path.calculateRoot(account.hash()).assertEquals(commitment);
   }
 }
