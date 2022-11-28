@@ -1,15 +1,6 @@
-/*
-Description: 
-This example describes how developers can use Merkle Trees as a basic off-chain storage tool.
-zkApps on Mina can only store a small amount of data on-chain, but many use cases require your application to at least reference big amounts of data.
-Merkle Trees give developers the power of storing large amounts of data off-chain, but proving its integrity to the on-chain smart contract!
-! Unfamiliar with Merkle Trees? No problem! Check out https://blog.ethereum.org/2015/11/15/merkling-in-ethereum/
-*/
-
 import {
   SmartContract,
   isReady,
-  // shutdown,
   Poseidon,
   Field,
   Experimental,
@@ -17,16 +8,16 @@ import {
   DeployArgs,
   State,
   state,
-  // Circuit,
   CircuitValue,
   PublicKey,
   UInt64,
   prop,
   method,
   UInt32,
+  MerkleWitness,
+  MerkleTree
 } from 'snarkyjs';
-// import { makeGuess } from './makeGuess';
-// const makeGuess = require("./makeGuess");
+
 
 let initialBalance = 10_000_000_000;
 
@@ -51,20 +42,15 @@ export class Account extends CircuitValue {
 
 await isReady;
 
-export class MerkleWitness extends Experimental.MerkleWitness(8) {}
-
-// we need the initiate tree root in order to tell the contract about our off-chain storage
-// let initialCommitment: Field = Field.fromString("14386905136047813188402530458040163982382296957159056735222247321988650670868");
-/*
-  We want to write a smart contract that serves as a leaderboard,
-  but only has the commitment of the off-chain storage stored in an on-chain variable.
-  The accounts of all participants will be stored off-chain!
-  If a participant can guess the preimage of a hash, they will be granted one point :)
-*/
+export class MerkleWitnessC extends MerkleWitness(8) { }
 
 export class MerkleAirdrop extends SmartContract {
-  // a commitment is a cryptographic primitive that allows us to commit to data, with the ability to "reveal" it later
+  // commitment is the root of the Merkle Tree
   @state(Field) commitment = State<Field>();
+
+  // nullifiers are used to prevent double spending
+  @state(Field) nullifiers = State<string>();
+
 
   deploy(args: DeployArgs) {
     super.deploy(args);
@@ -72,7 +58,10 @@ export class MerkleAirdrop extends SmartContract {
       ...Permissions.default(),
       editState: Permissions.proofOrSignature(),
     });
-    this.balance.addInPlace(UInt64.fromNumber(initialBalance));
+    this.balance.addInPlace(UInt64.from(initialBalance));
+
+
+
   }
 
   @method
@@ -82,7 +71,7 @@ export class MerkleAirdrop extends SmartContract {
   }
 
   @method
-  guessPreimage(account: Account, path: MerkleWitness) {
+  guessPreimage(account: Account, path: MerkleWitnessC) {
     // we fetch the on-chain commitment
     let commitment = this.commitment.get();
     this.commitment.assertEquals(commitment);
@@ -102,15 +91,40 @@ export class MerkleAirdrop extends SmartContract {
   }
 
   @method
-  checkInclusion(account: Account, path: MerkleWitness) {
-    console.log('checking inclusion for account', account.publicKey.toString());
+  checkInclusion(account: Account, path: MerkleWitnessC) {
+    // console.log('checkInclusion::checking inclusion for account', account.publicKey.toString());
 
     // we fetch the on-chain commitment
     let commitment = this.commitment.get();
     this.commitment.assertEquals(commitment);
 
     // we check that the account is within the committed Merkle Tree
-    console.log('checking acccount is in tree');
+    // console.log('checking acccount is in tree');
     path.calculateRoot(account.hash()).assertEquals(commitment);
+  }
+
+  @method
+  claim(account: Account, path: MerkleWitnessC) {
+    // console.log('claim::checking inclusion for account', account.publicKey.toString());
+
+    // we fetch the on-chain commitment
+    let commitment = this.commitment.get();
+    this.commitment.assertEquals(commitment);
+
+    // we check that the account is within the committed Merkle Tree
+    // console.log('checking acccount is in tree');
+    path.calculateRoot(account.hash()).assertEquals(commitment);
+
+    // ensure this account has not been claimed before
+    let nullifiers = this.nullifiers.get();
+    this.nullifiers.assertEquals(nullifiers);
+    console.log("claim::nullifiers.value", (nullifiers as any).value);
+    // const nulls = new Uint8Array(Buffer.from(nullifiers.valueOf()));
+    // console.log("claim::nulls", nulls);
+
+
+    // now send value to the account
+    // this.balance.subInPlace(UInt64.fromNumber(1));
+
   }
 }

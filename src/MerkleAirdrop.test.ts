@@ -1,4 +1,4 @@
-import { MerkleAirdrop, Account, MerkleWitness } from './MerkleAirdrop';
+import { MerkleAirdrop, Account, MerkleWitnessC } from './MerkleAirdrop';
 import {
   isReady,
   shutdown,
@@ -7,17 +7,12 @@ import {
   PublicKey,
   AccountUpdate,
   UInt32,
-  Experimental,
+  // Experimental,
+  MerkleTree
 } from 'snarkyjs';
 
-/*
- * This file specifies how to test the `Add` example smart contract. It is safe to delete this file and replace
- * with your own tests.
- *
- * See https://docs.minaprotocol.com/zkapps for more info.
- */
 
-const Tree = new Experimental.MerkleTree(8);
+const Tree = new MerkleTree(8);
 let initialBalance = 10_000_000_000;
 type Names = 'Bob' | 'Alice' | 'Charlie' | 'Olivia';
 export let Accounts: Map<string, Account> = new Map<Names, Account>();
@@ -57,7 +52,7 @@ async function localDeploy(
     // zkAppInstance.init();
     // zkAppInstance.sign(zkAppPrivatekey);
   });
-  await txn.send().wait();
+  await txn.send()
 }
 
 describe('MerkleAirdrop', () => {
@@ -115,6 +110,18 @@ describe('MerkleAirdrop', () => {
     );
   });
 
+  it('can claim', async () => {
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
+
+    await claim('Alice',
+      BigInt(0),
+      deployerAccount,
+      zkAppPrivateKey,
+      zkAppInstance)
+  });
+
   it('throws when randomer is not in set', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
@@ -160,8 +167,26 @@ async function checkInclusion(
   let tx = await Mina.transaction(feePayer, () => {
     let account = Accounts.get(name)!;
     let w = Tree.getWitness(index);
-    let witness = new MerkleWitness(w);
+    let witness = new MerkleWitnessC(w);
     leaderboardZkApp.checkInclusion(account, witness);
+    leaderboardZkApp.sign(zkappKey);
+  });
+  await tx.prove();
+  await tx.send();
+}
+
+async function claim(
+  name: Names,
+  index: bigint, // do we need index? can we just loop in the tree?
+  feePayer: any,
+  zkappKey: any,
+  leaderboardZkApp: MerkleAirdrop
+) {
+  let tx = await Mina.transaction(feePayer, () => {
+    let account = Accounts.get(name)!;
+    let w = Tree.getWitness(index);
+    let witness = new MerkleWitnessC(w);
+    leaderboardZkApp.claim(account, witness);
     leaderboardZkApp.sign(zkappKey);
   });
   await tx.prove();
@@ -177,7 +202,7 @@ async function makeGuess(
 ) {
   let account = Accounts.get(name)!;
   let w = Tree.getWitness(index);
-  let witness = new MerkleWitness(w);
+  let witness = new MerkleWitnessC(w);
 
   let tx = await Mina.transaction(feePayer, () => {
     console.log('test guessing...');

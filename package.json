@@ -1,5 +1,5 @@
 {
-  "name": "test",
+  "name": "mina-private-airdrop",
   "version": "0.1.0",
   "description": "",
   "author": "",
@@ -41,11 +41,10 @@
     "lint-staged": "^11.0.1",
     "prettier": "^2.3.2",
     "ts-jest": "^27.0.7",
-    "typescript": "^4.7.2"
+    "typescript": "^4.7.2",
+    "snarkyjs": "^0.7.1"
   },
-  "peerDependencies": {
-    "snarkyjs": "^0.6.0"
-  },
+  "peerDependencies": {},
   "dependencies": {
     "ts-node": "^10.9.1"
   }
