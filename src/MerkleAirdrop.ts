@@ -15,11 +15,13 @@ import {
   method,
   UInt32,
   MerkleWitness,
-  MerkleTree
+  MerkleTree,
+  Signature
 } from 'snarkyjs';
 
 
 let initialBalance = 10_000_000_000;
+const tokenSymbol = 'MYTKN';
 
 export class Account extends CircuitValue {
   @prop publicKey: PublicKey;
@@ -51,6 +53,8 @@ export class MerkleAirdrop extends SmartContract {
   // nullifiers are used to prevent double spending
   @state(Field) nullifiers = State<string>();
 
+  // total supply of tokens
+  @state(UInt64) totalAmountInCirculation = State<UInt64>();
 
   deploy(args: DeployArgs) {
     super.deploy(args);
@@ -59,11 +63,58 @@ export class MerkleAirdrop extends SmartContract {
       editState: Permissions.proofOrSignature(),
     });
     this.balance.addInPlace(UInt64.from(initialBalance));
-
-
-
+    this.tokenSymbol.set(tokenSymbol);
+    this.totalAmountInCirculation.set(UInt64.zero);
   }
 
+  // @method init() {
+  //   super.init();
+  //   this.tokenSymbol.set(tokenSymbol);
+  //   this.totalAmountInCirculation.set(UInt64.zero);
+  // }
+
+  // token method
+  @method mint(
+    receiverAddress: PublicKey,
+    amount: UInt64,
+    adminSignature: Signature
+  ) {
+    let totalAmountInCirculation = this.totalAmountInCirculation.get();
+    this.totalAmountInCirculation.assertEquals(totalAmountInCirculation);
+    console.log("contract:: minting", amount.toString(), "to", receiverAddress.toString());
+    let newTotalAmountInCirculation = totalAmountInCirculation.add(amount);
+
+    adminSignature
+      .verify(
+        this.address,
+        amount.toFields().concat(receiverAddress.toFields())
+      )
+      .assertTrue();
+    console.log("contract:: signature verified");
+
+    // this.token.mint({
+    //   address: receiverAddress,
+    //   amount,
+    // });
+    console.log("updating totalAmountInCirculation");
+    this.totalAmountInCirculation.set(newTotalAmountInCirculation);
+    console.log("updated totalAmountInCirculation");
+  }
+
+  // token method
+  @method sendTokens(
+    senderAddress: PublicKey,
+    receiverAddress: PublicKey,
+    amount: UInt64
+  ) {
+    this.token.send({
+      from: senderAddress,
+      to: receiverAddress,
+      amount,
+    });
+  }
+
+  // set initial merkle tree value
   @method
   setCommitment(preImage: Field) {
     console.log(`contract setting preImage to `, preImage.toString());
@@ -124,7 +175,8 @@ export class MerkleAirdrop extends SmartContract {
 
 
     // now send value to the account
-    // this.balance.subInPlace(UInt64.fromNumber(1));
+    // this.sendTokens(this.address, account.publicKey, UInt64.one);
+    // this.mint(account.publicKey, UInt64.one);
 
   }
 }

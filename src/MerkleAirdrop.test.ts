@@ -8,17 +8,26 @@ import {
   AccountUpdate,
   UInt32,
   // Experimental,
-  MerkleTree
+  MerkleTree,
+  UInt64,
+  Sign,
+  Signature
 } from 'snarkyjs';
 
 
 const Tree = new MerkleTree(8);
+const initialTokens = 100;
 let initialBalance = 10_000_000_000;
 type Names = 'Bob' | 'Alice' | 'Charlie' | 'Olivia';
 export let Accounts: Map<string, Account> = new Map<Names, Account>();
 
 let alice, charlie, olivia: any;
 let initialCommitment: any;
+
+let verificationKey: any;
+
+
+
 
 function createLocalBlockchain() {
   const Local = Mina.LocalBlockchain();
@@ -46,6 +55,8 @@ async function localDeploy(
   zkAppPrivatekey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
+  // ({ verificationKey } = await MerkleAirdrop.compile());
+
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount, { initialBalance });
     zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
@@ -109,6 +120,19 @@ describe('MerkleAirdrop', () => {
       zkAppInstance
     );
   });
+
+  it('can mint', async () => {
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
+
+    console.log("minting...")
+    await mint(deployerAccount,
+      zkAppPrivateKey,
+      zkAppInstance)
+    console.log("minted")
+  });
+
 
   it('can claim', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
@@ -190,6 +214,24 @@ async function claim(
     leaderboardZkApp.sign(zkappKey);
   });
   await tx.prove();
+  await tx.send();
+}
+
+async function mint(
+  feePayer: any,
+  zkappKey: any,
+  leaderboardZkApp: MerkleAirdrop
+) {
+  const sig = Signature.create(zkappKey, (UInt64.from(initialTokens)).toFields().concat(leaderboardZkApp.address.toFields()))
+  console.log({ sig })
+
+  let tx = await Mina.transaction(feePayer, () => {
+    // AccountUpdate.fundNewAccount(feePayer);
+    leaderboardZkApp.mint(leaderboardZkApp.address, UInt64.from(initialTokens), sig);
+    leaderboardZkApp.sign(zkappKey);
+  });
+  // await tx.prove();
+  // tx.sign([zkappKey])
   await tx.send();
 }
 
