@@ -3,7 +3,6 @@ import {
   isReady,
   Poseidon,
   Field,
-  Experimental,
   Permissions,
   DeployArgs,
   State,
@@ -15,10 +14,8 @@ import {
   method,
   UInt32,
   MerkleWitness,
-  MerkleTree,
-  Signature
+  Signature,
 } from 'snarkyjs';
-
 
 let initialBalance = 10_000_000_000;
 const tokenSymbol = 'MYTKN';
@@ -44,7 +41,7 @@ export class Account extends CircuitValue {
 
 await isReady;
 
-export class MerkleWitnessC extends MerkleWitness(8) { }
+export class MerkleWitnessC extends MerkleWitness(8) {}
 
 export class MerkleAirdrop extends SmartContract {
   // commitment is the root of the Merkle Tree
@@ -58,20 +55,21 @@ export class MerkleAirdrop extends SmartContract {
 
   deploy(args: DeployArgs) {
     super.deploy(args);
+
+    const permissionToEdit = Permissions.signature();
+
     this.setPermissions({
       ...Permissions.default(),
       editState: Permissions.proofOrSignature(),
+      setTokenSymbol: permissionToEdit,
+      send: permissionToEdit,
+      receive: permissionToEdit,
     });
     this.balance.addInPlace(UInt64.from(initialBalance));
+
     this.tokenSymbol.set(tokenSymbol);
     this.totalAmountInCirculation.set(UInt64.zero);
   }
-
-  // @method init() {
-  //   super.init();
-  //   this.tokenSymbol.set(tokenSymbol);
-  //   this.totalAmountInCirculation.set(UInt64.zero);
-  // }
 
   // token method
   @method mint(
@@ -81,7 +79,6 @@ export class MerkleAirdrop extends SmartContract {
   ) {
     let totalAmountInCirculation = this.totalAmountInCirculation.get();
     this.totalAmountInCirculation.assertEquals(totalAmountInCirculation);
-    console.log("contract:: minting", amount.toString(), "to", receiverAddress.toString());
     let newTotalAmountInCirculation = totalAmountInCirculation.add(amount);
 
     adminSignature
@@ -90,15 +87,13 @@ export class MerkleAirdrop extends SmartContract {
         amount.toFields().concat(receiverAddress.toFields())
       )
       .assertTrue();
-    console.log("contract:: signature verified");
 
-    // this.token.mint({
-    //   address: receiverAddress,
-    //   amount,
-    // });
-    console.log("updating totalAmountInCirculation");
+    this.token.mint({
+      address: receiverAddress,
+      amount,
+    });
+
     this.totalAmountInCirculation.set(newTotalAmountInCirculation);
-    console.log("updated totalAmountInCirculation");
   }
 
   // token method
@@ -117,7 +112,7 @@ export class MerkleAirdrop extends SmartContract {
   // set initial merkle tree value
   @method
   setCommitment(preImage: Field) {
-    console.log(`contract setting preImage to `, preImage.toString());
+    // console.log(`contract setting preImage to `, preImage.toString(s));
     this.commitment.set(preImage);
   }
 
@@ -128,9 +123,9 @@ export class MerkleAirdrop extends SmartContract {
     this.commitment.assertEquals(commitment);
 
     // we check that the account is within the committed Merkle Tree
-    console.log('checking acccount is in tree');
+    // console.log('checking acccount is in tree');
     path.calculateRoot(account.hash()).assertEquals(commitment);
-    console.log('acccount is in tree');
+    // console.log('acccount is in tree');
 
     // we update the account and grant one point!
     let newAccount = account.addPoints(1);
@@ -169,14 +164,12 @@ export class MerkleAirdrop extends SmartContract {
     // ensure this account has not been claimed before
     let nullifiers = this.nullifiers.get();
     this.nullifiers.assertEquals(nullifiers);
-    console.log("claim::nullifiers.value", (nullifiers as any).value);
+    // console.log("claim::nullifiers.value", (nullifiers as any).value);
     // const nulls = new Uint8Array(Buffer.from(nullifiers.valueOf()));
     // console.log("claim::nulls", nulls);
-
 
     // now send value to the account
     // this.sendTokens(this.address, account.publicKey, UInt64.one);
     // this.mint(account.publicKey, UInt64.one);
-
   }
 }

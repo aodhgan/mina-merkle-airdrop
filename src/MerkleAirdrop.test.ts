@@ -7,13 +7,10 @@ import {
   PublicKey,
   AccountUpdate,
   UInt32,
-  // Experimental,
   MerkleTree,
   UInt64,
-  Sign,
-  Signature
+  Signature,
 } from 'snarkyjs';
-
 
 const Tree = new MerkleTree(8);
 const initialTokens = 100;
@@ -24,14 +21,14 @@ export let Accounts: Map<string, Account> = new Map<Names, Account>();
 let alice, charlie, olivia: any;
 let initialCommitment: any;
 
-let verificationKey: any;
-
-
-
-
-function createLocalBlockchain() {
+async function createLocalBlockchain() {
   const Local = Mina.LocalBlockchain();
   Mina.setActiveInstance(Local);
+
+  // console.log("compiling zkapp...");
+  // ({ verificationKey } = await MerkleAirdrop.compile());
+  // console.log("compiled zkapp...");
+  // console.log({ verificationKey })
 
   alice = new Account(Local.testAccounts[1].publicKey, UInt32.from(0));
   charlie = new Account(Local.testAccounts[2].publicKey, UInt32.from(0));
@@ -55,15 +52,13 @@ async function localDeploy(
   zkAppPrivatekey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
-  // ({ verificationKey } = await MerkleAirdrop.compile());
-
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount, { initialBalance });
     zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
     // zkAppInstance.init();
     // zkAppInstance.sign(zkAppPrivatekey);
   });
-  await txn.send()
+  await txn.send();
 }
 
 describe('MerkleAirdrop', () => {
@@ -73,7 +68,7 @@ describe('MerkleAirdrop', () => {
 
   beforeEach(async () => {
     await isReady;
-    deployerAccount = createLocalBlockchain();
+    deployerAccount = await createLocalBlockchain();
     zkAppPrivateKey = PrivateKey.random();
     zkAppAddress = zkAppPrivateKey.toPublicKey();
   });
@@ -126,24 +121,21 @@ describe('MerkleAirdrop', () => {
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
-    console.log("minting...")
-    await mint(deployerAccount,
-      zkAppPrivateKey,
-      zkAppInstance)
-    console.log("minted")
+    await mint(deployerAccount, zkAppPrivateKey, zkAppInstance);
   });
-
 
   it('can claim', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
-    await claim('Alice',
+    await claim(
+      'Alice',
       BigInt(0),
       deployerAccount,
       zkAppPrivateKey,
-      zkAppInstance)
+      zkAppInstance
+    );
   });
 
   it('throws when randomer is not in set', async () => {
@@ -222,16 +214,25 @@ async function mint(
   zkappKey: any,
   leaderboardZkApp: MerkleAirdrop
 ) {
-  const sig = Signature.create(zkappKey, (UInt64.from(initialTokens)).toFields().concat(leaderboardZkApp.address.toFields()))
-  console.log({ sig })
-
+  const sig = Signature.create(
+    zkappKey,
+    UInt64.from(initialTokens)
+      .toFields()
+      .concat(leaderboardZkApp.address.toFields())
+  );
+  // console.log("compiling.")
+  // await MerkleAirdrop.compile()
   let tx = await Mina.transaction(feePayer, () => {
-    // AccountUpdate.fundNewAccount(feePayer);
-    leaderboardZkApp.mint(leaderboardZkApp.address, UInt64.from(initialTokens), sig);
+    AccountUpdate.fundNewAccount(feePayer);
+    leaderboardZkApp.mint(
+      leaderboardZkApp.address,
+      UInt64.from(initialTokens),
+      sig
+    );
     leaderboardZkApp.sign(zkappKey);
   });
-  // await tx.prove();
-  // tx.sign([zkappKey])
+  await tx.prove();
+  tx.sign([zkappKey]);
   await tx.send();
 }
 
