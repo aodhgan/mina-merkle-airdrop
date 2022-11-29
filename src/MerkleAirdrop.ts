@@ -43,7 +43,7 @@ export class Account extends CircuitValue {
 
 await isReady;
 
-export class MerkleWitnessInstance extends MerkleWitness(8) {}
+export class MerkleWitnessInstance extends MerkleWitness(8) { }
 
 export class MerkleAirdrop extends SmartContract {
   // commitment is the root of the Merkle Tree
@@ -120,16 +120,27 @@ export class MerkleAirdrop extends SmartContract {
   }
 
   @method
-  checkInclusion(account: Account, path: MerkleWitnessInstance) {
+  checkSetInclusion(account: Account, path: MerkleWitnessInstance) {
     // console.log('checkInclusion::checking inclusion for account', account.publicKey.toString());
 
     // we fetch the on-chain commitment
     let commitment = this.commitment.get();
     this.commitment.assertEquals(commitment);
-
     // we check that the account is within the committed Merkle Tree
-    // console.log('checking acccount is in tree');
     path.calculateRoot(account.hash()).assertEquals(commitment);
+  }
+
+  /// checks if an account has claimed, returns 0 if not claimed, 1 if claimed
+  @method
+  checkClaimed(account: Account, mmWitness: MerkleMapWitness): bigint {
+    // ensure this account has not been claimed before
+    let nullifiers = this.nullifiers.get();
+    this.nullifiers.assertEquals(nullifiers);
+
+    // eslint-disable-next-line no-unused-vars
+    const [rootBefore, key] = mmWitness.computeRootAndKey(Field.zero);
+    console.log("key is ", key.toBigInt())
+    return key.toBigInt();
   }
 
   @method
@@ -139,28 +150,28 @@ export class MerkleAirdrop extends SmartContract {
     signature: Signature,
     mmWitness: MerkleMapWitness
   ) {
-    // we fetch the on-chain commitment
+    // fetch the on-chain commitment
     let commitment = this.commitment.get();
     this.commitment.assertEquals(commitment);
 
-    // we check that the account is within the committed Merkle Tree
+    // check that the account is within the committed Merkle Tree
     path.calculateRoot(account.hash()).assertEquals(commitment);
 
     // ensure this account has not been claimed before
     let _nullifiers = this.nullifiers.get();
     this.nullifiers.assertEquals(_nullifiers);
 
-    // const initialRoot = (this.nullifiers as unknown as MerkleMap).getRoot();
-    // console.log({ initialRoot })
-
     // eslint-disable-next-line no-unused-vars
     const [rootBefore, key] = mmWitness.computeRootAndKey(Field.zero);
+    console.log(" nullifier root is", rootBefore.toString())
     key.assertEquals(Field.zero);
     // rootBefore.assertEquals(_nullifiers.getRoot());
 
     // compute the root after setting nullifier flag
     // eslint-disable-next-line no-unused-vars
     const [rootAfter, _] = mmWitness.computeRootAndKey(Field.one);
+
+    console.log("setting nullifier root to", rootAfter.toString())
 
     // set the new root
     this.nullifiers.set(rootAfter);

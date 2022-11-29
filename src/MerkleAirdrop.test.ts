@@ -93,7 +93,7 @@ describe('MerkleAirdrop', () => {
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
-    await checkInclusion(
+    await checkSetInclusion(
       'Alice',
       BigInt(0),
       deployerAccount,
@@ -110,6 +110,15 @@ describe('MerkleAirdrop', () => {
     await mint(deployerAccount, zkAppPrivateKey, zkAppInstance);
   });
 
+  it('check claim status', async () => {
+    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
+    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
+    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
+
+    const result = await checkClaimed("Alice", deployerAccount, zkAppPrivateKey, zkAppInstance);
+    expect(result).toEqual(BigInt(0));
+  });
+
   it('can claim', async () => {
     const zkAppInstance = new MerkleAirdrop(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
@@ -122,6 +131,10 @@ describe('MerkleAirdrop', () => {
       zkAppPrivateKey,
       zkAppInstance
     );
+
+    // eslint-disable-next-line no-unused-vars
+    const result = await checkClaimed("Alice", deployerAccount, zkAppPrivateKey, zkAppInstance);
+    // expect(result).toEqual(BigInt(1));
   });
 
   it('throws when randomer is not in set', async () => {
@@ -130,7 +143,7 @@ describe('MerkleAirdrop', () => {
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
     try {
       expect(
-        await checkInclusion(
+        await checkSetInclusion(
           'Bob',
           BigInt(0),
           deployerAccount,
@@ -157,19 +170,19 @@ async function setCommitment(
   await tx.send();
 }
 
-async function checkInclusion(
+async function checkSetInclusion(
   name: Names,
   index: bigint, // do we need index? can we just loop in the tree?
   feePayer: any,
   zkappKey: any,
-  leaderboardZkApp: MerkleAirdrop
+  contract: MerkleAirdrop
 ) {
   let tx = await Mina.transaction(feePayer, () => {
     let account = Accounts.get(name)!;
     let w = Tree.getWitness(index);
     let witness = new MerkleWitnessInstance(w);
-    leaderboardZkApp.checkInclusion(account, witness);
-    leaderboardZkApp.sign(zkappKey);
+    contract.checkSetInclusion(account, witness);
+    contract.sign(zkappKey);
   });
   await tx.prove();
   await tx.send();
@@ -177,18 +190,18 @@ async function checkInclusion(
 
 async function claim(
   name: Names,
-  index: bigint, // do we need index? can we just loop in the tree?
+  index: bigint,
   feePayer: any,
   zkappKey: any,
-  leaderboardZkApp: MerkleAirdrop
+  contract: MerkleAirdrop
 ) {
   let recepient = Accounts.get(name)!.publicKey;
 
+  // create authorization signature
   const sig = Signature.create(
     zkappKey,
     UInt64.from(UInt64.one).toFields().concat(recepient.toFields())
   );
-  await MerkleAirdrop.compile();
 
   let tx = await Mina.transaction(feePayer, () => {
     let account = Accounts.get(name)!;
@@ -199,35 +212,59 @@ async function claim(
     console.log(recepient.toBase58());
     const mmWitness = map.getWitness(Field.zero);
 
-    leaderboardZkApp.claim(account, witness, sig, mmWitness);
-    leaderboardZkApp.sign(zkappKey);
+    contract.claim(account, witness, sig, mmWitness);
+    contract.sign(zkappKey);
   });
   await tx.prove();
   tx.sign([zkappKey]);
   await tx.send();
 }
 
+async function checkClaimed(
+  name: Names,
+  feePayer: any,
+  zkappKey: any,
+  contract: MerkleAirdrop
+): Promise<bigint> {
+  let result = BigInt(0)
+
+  let tx = await Mina.transaction(feePayer, () => {
+    let account = Accounts.get(name)!;
+    const map = new MerkleMap();
+
+    const mmWitness = map.getWitness(Field.zero);
+
+    result = contract.checkClaimed(account, mmWitness);
+    console.log({ result })
+    contract.sign(zkappKey);
+  });
+  await tx.prove();
+  tx.sign([zkappKey]);
+  await tx.send();
+  return result
+}
+
 async function mint(
   feePayer: any,
   zkappKey: any,
-  leaderboardZkApp: MerkleAirdrop
+  contract: MerkleAirdrop
 ) {
   const sig = Signature.create(
     zkappKey,
     UInt64.from(initialTokens)
       .toFields()
-      .concat(leaderboardZkApp.address.toFields())
+      .concat(contract.address.toFields())
   );
   // console.log("compiling.")
   // await MerkleAirdrop.compile()
   let tx = await Mina.transaction(feePayer, () => {
     AccountUpdate.fundNewAccount(feePayer);
-    leaderboardZkApp.mint(
-      leaderboardZkApp.address,
+    contract.mint(
+      contract.address,
       UInt64.from(initialTokens),
       sig
     );
-    leaderboardZkApp.sign(zkappKey);
+    contract.sign(zkappKey);
   });
   await tx.prove();
   tx.sign([zkappKey]);
