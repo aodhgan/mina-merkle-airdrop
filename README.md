@@ -1,10 +1,7 @@
 [![CI](https://github.com/aodhgan/mina-merkle-airdrop/actions/workflows/ci.yml/badge.svg)](https://github.com/aodhgan/mina-merkle-airdrop/actions/workflows/ci.yml)
 
 # Merkle Airdrop
-
-
-
-This is an implementation of a private Merkle Tree based airdrop built using Mina smart contracts, intended to have similar functionality to the popular [a16z repo](https://github.com/a16z/zkp-merkle-airdrop-contracts).
+This is an implementation of a private Merkle Tree based airdrop built using Mina smart contracts and [snarkyJS](https://www.npmjs.com/package/snarkyjs), intended to have similar functionality to the popular [a16z repo](https://github.com/a16z/zkp-merkle-airdrop-contracts).
 
 Without revealing their address (public key), a user can claim their airdrop. 
 The presence of [MerkleMap](https://docs.minaprotocol.com/zkapps/tutorials/common-types-and-functions#merkle-map) based nullifiers prevent double-claiming. 
@@ -23,6 +20,17 @@ where:
 
 This method will throw if the account is not included in the airdrop data set. 
 
+
+### Check if account has already claimed
+```js
+checkClaimed(account: Account, path: MerkleMapWitness): bigint`
+```
+where:
+`account` is the account you want to check
+`path` is the merkle map witness and is generated off-chain
+
+This method will return 1 if already claimed, 0 otherwise. 
+
 ### Claim
 ```js
   claim(
@@ -38,7 +46,7 @@ where:
 `signature` is an `account` private key signed permission slip to claim
 `mmWitness` is a Merkle Map witness to correctly prove the airdrop has not already been claimed
 
-## Amin Functionality
+## Admin Functionality
 ### Mint tokens
 
 ```js
