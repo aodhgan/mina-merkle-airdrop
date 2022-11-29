@@ -12,22 +12,22 @@ The zk-contract is also a [custom token](https://docs.minaprotocol.com/zkapps/ad
 Once the contract is deployed the following functionality is exposed:
 ### Check Inclusion of account in Merkle tree dataset
 ```js
-checkSetInclusion(account: Account, path: MerkleWitnessInstance)`
+checkSetInclusion(account: Account, path: MerkleWitnessInstance)
 ```
-where:
-`account` is the account you want to check
-`path` is the merkle tree path and is generated off-chain
+where: \ 
+`account` is the account you want to check \
+`path` is the merkle tree path and is generated off-chain \
 
 This method will throw if the account is not included in the airdrop data set. 
 
 
 ### Check if account has already claimed
 ```js
-checkClaimed(account: Account, path: MerkleMapWitness): bigint`
+checkClaimed(account: Account, path: MerkleMapWitness): bigint
 ```
-where:
-`account` is the account you want to check
-`path` is the merkle map witness and is generated off-chain
+where: \
+`account` is the account you want to check \
+`path` is the merkle map witness and is generated off-chain \
 
 This method will return 1 if already claimed, 0 otherwise. 
 
@@ -40,10 +40,10 @@ This method will return 1 if already claimed, 0 otherwise.
     mmWitness: MerkleMapWitness
   )
 ```
-where:
-`account` is the account you want to check
-`path` is the merkle tree path and is generated off-chain
-`signature` is an `account` private key signed permission slip to claim
+where: \ 
+`account` is the account you want to check \
+`path` is the merkle tree path and is generated off-chain \
+`signature` is an `account` private key signed permission slip to claim \ 
 `mmWitness` is a Merkle Map witness to correctly prove the airdrop has not already been claimed
 
 ## Admin Functionality
@@ -56,13 +56,17 @@ mint(
     adminSignature: Signature
   )
 ```
-`receiverAddress` is receiving address
-`amount` is the amount of tokens to mint
-`adminSignature` is the admin private key signed permission slip
+where: \
+`receiverAddress` is receiving address \
+`amount` is the amount of tokens to mint \
+`adminSignature` is the admin private key signed permission slip \
 
+
+### Set Merkle Root commitment
 ```js
 setCommitment(preImage: Field)
 ```
+where: \
 `preImage` is the merkle root of the data set of addresses that are eligible
 
 
