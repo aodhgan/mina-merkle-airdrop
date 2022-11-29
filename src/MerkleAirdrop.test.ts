@@ -1,4 +1,4 @@
-import { MerkleAirdrop, Account, MerkleWitnessC } from './MerkleAirdrop';
+import { MerkleAirdrop, Account, MerkleWitnessInstance } from './MerkleAirdrop';
 import {
   isReady,
   shutdown,
@@ -10,6 +10,8 @@ import {
   MerkleTree,
   UInt64,
   Signature,
+  MerkleMap,
+  Field,
 } from 'snarkyjs';
 
 const Tree = new MerkleTree(8);
@@ -55,8 +57,6 @@ async function localDeploy(
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount, { initialBalance });
     zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
-    // zkAppInstance.init();
-    // zkAppInstance.sign(zkAppPrivatekey);
   });
   await txn.send();
 }
@@ -86,20 +86,6 @@ describe('MerkleAirdrop', () => {
     await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
 
     expect(zkAppInstance.commitment.get()).toEqual(initialCommitment);
-  });
-
-  it('correctly updates the merkle root on the `MerkleAirdrop` smart contract', async () => {
-    const zkAppInstance = new MerkleAirdrop(zkAppAddress);
-    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    await setCommitment(deployerAccount, zkAppPrivateKey, zkAppInstance);
-
-    makeGuess(
-      'Alice',
-      BigInt(0),
-      deployerAccount,
-      zkAppPrivateKey,
-      zkAppInstance
-    );
   });
 
   it('check Alice is in the set', async () => {
@@ -164,9 +150,7 @@ async function setCommitment(
   merkleZkApp: MerkleAirdrop
 ) {
   let tx = await Mina.transaction(feePayer, () => {
-    console.log('setting preimage to ...', initialCommitment.toString());
     merkleZkApp.setCommitment(initialCommitment);
-    console.log('returned from setting preimage');
     merkleZkApp.sign(zkappKey);
   });
   await tx.prove();
@@ -183,7 +167,7 @@ async function checkInclusion(
   let tx = await Mina.transaction(feePayer, () => {
     let account = Accounts.get(name)!;
     let w = Tree.getWitness(index);
-    let witness = new MerkleWitnessC(w);
+    let witness = new MerkleWitnessInstance(w);
     leaderboardZkApp.checkInclusion(account, witness);
     leaderboardZkApp.sign(zkappKey);
   });
@@ -198,14 +182,28 @@ async function claim(
   zkappKey: any,
   leaderboardZkApp: MerkleAirdrop
 ) {
+  let recepient = Accounts.get(name)!.publicKey;
+
+  const sig = Signature.create(
+    zkappKey,
+    UInt64.from(UInt64.one).toFields().concat(recepient.toFields())
+  );
+  await MerkleAirdrop.compile();
+
   let tx = await Mina.transaction(feePayer, () => {
     let account = Accounts.get(name)!;
     let w = Tree.getWitness(index);
-    let witness = new MerkleWitnessC(w);
-    leaderboardZkApp.claim(account, witness);
+    let witness = new MerkleWitnessInstance(w);
+
+    const map = new MerkleMap();
+    console.log(recepient.toBase58());
+    const mmWitness = map.getWitness(Field.zero);
+
+    leaderboardZkApp.claim(account, witness, sig, mmWitness);
     leaderboardZkApp.sign(zkappKey);
   });
   await tx.prove();
+  tx.sign([zkappKey]);
   await tx.send();
 }
 
@@ -234,35 +232,4 @@ async function mint(
   await tx.prove();
   tx.sign([zkappKey]);
   await tx.send();
-}
-
-async function makeGuess(
-  name: Names,
-  index: bigint,
-  feePayer: any,
-  zkappKey: any,
-  merkleAirdropZkApp: MerkleAirdrop
-) {
-  let account = Accounts.get(name)!;
-  let w = Tree.getWitness(index);
-  let witness = new MerkleWitnessC(w);
-
-  let tx = await Mina.transaction(feePayer, () => {
-    console.log('test guessing...');
-    merkleAirdropZkApp.guessPreimage(account, witness);
-    console.log('returned from guessing');
-    merkleAirdropZkApp.sign(zkappKey);
-  });
-
-  await tx.prove();
-  await tx.send();
-
-  // if the transaction was successful, we can update our off-chain storage as well
-  account.points = account.points.add(1);
-  Tree.setLeaf(index, account.hash());
-  console.log(
-    'leaderboardZkApp.commitment.get()',
-    merkleAirdropZkApp.commitment.get()
-  );
-  merkleAirdropZkApp.commitment.get().assertEquals(Tree.getRoot());
 }

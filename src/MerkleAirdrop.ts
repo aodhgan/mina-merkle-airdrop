@@ -15,6 +15,8 @@ import {
   UInt32,
   MerkleWitness,
   Signature,
+  // MerkleMap,
+  MerkleMapWitness,
 } from 'snarkyjs';
 
 let initialBalance = 10_000_000_000;
@@ -41,14 +43,14 @@ export class Account extends CircuitValue {
 
 await isReady;
 
-export class MerkleWitnessC extends MerkleWitness(8) {}
+export class MerkleWitnessInstance extends MerkleWitness(8) {}
 
 export class MerkleAirdrop extends SmartContract {
   // commitment is the root of the Merkle Tree
   @state(Field) commitment = State<Field>();
 
   // nullifiers are used to prevent double spending
-  @state(Field) nullifiers = State<string>();
+  @state(Field) nullifiers = State<Field>();
 
   // total supply of tokens
   @state(UInt64) totalAmountInCirculation = State<UInt64>();
@@ -81,18 +83,20 @@ export class MerkleAirdrop extends SmartContract {
     this.totalAmountInCirculation.assertEquals(totalAmountInCirculation);
     let newTotalAmountInCirculation = totalAmountInCirculation.add(amount);
 
+    console.log('verifying signature');
     adminSignature
       .verify(
         this.address,
         amount.toFields().concat(receiverAddress.toFields())
       )
       .assertTrue();
+    console.log('verified signature');
 
     this.token.mint({
       address: receiverAddress,
       amount,
     });
-
+    console.log('minted!');
     this.totalAmountInCirculation.set(newTotalAmountInCirculation);
   }
 
@@ -112,32 +116,11 @@ export class MerkleAirdrop extends SmartContract {
   // set initial merkle tree value
   @method
   setCommitment(preImage: Field) {
-    // console.log(`contract setting preImage to `, preImage.toString(s));
     this.commitment.set(preImage);
   }
 
   @method
-  guessPreimage(account: Account, path: MerkleWitnessC) {
-    // we fetch the on-chain commitment
-    let commitment = this.commitment.get();
-    this.commitment.assertEquals(commitment);
-
-    // we check that the account is within the committed Merkle Tree
-    // console.log('checking acccount is in tree');
-    path.calculateRoot(account.hash()).assertEquals(commitment);
-    // console.log('acccount is in tree');
-
-    // we update the account and grant one point!
-    let newAccount = account.addPoints(1);
-
-    // we calculate the new Merkle Root, based on the account changes
-    let newCommitment = path.calculateRoot(newAccount.hash());
-
-    this.commitment.set(newCommitment);
-  }
-
-  @method
-  checkInclusion(account: Account, path: MerkleWitnessC) {
+  checkInclusion(account: Account, path: MerkleWitnessInstance) {
     // console.log('checkInclusion::checking inclusion for account', account.publicKey.toString());
 
     // we fetch the on-chain commitment
@@ -150,26 +133,41 @@ export class MerkleAirdrop extends SmartContract {
   }
 
   @method
-  claim(account: Account, path: MerkleWitnessC) {
-    // console.log('claim::checking inclusion for account', account.publicKey.toString());
-
+  claim(
+    account: Account,
+    path: MerkleWitnessInstance,
+    signature: Signature,
+    mmWitness: MerkleMapWitness
+  ) {
     // we fetch the on-chain commitment
     let commitment = this.commitment.get();
     this.commitment.assertEquals(commitment);
 
     // we check that the account is within the committed Merkle Tree
-    // console.log('checking acccount is in tree');
     path.calculateRoot(account.hash()).assertEquals(commitment);
 
     // ensure this account has not been claimed before
-    let nullifiers = this.nullifiers.get();
-    this.nullifiers.assertEquals(nullifiers);
-    // console.log("claim::nullifiers.value", (nullifiers as any).value);
-    // const nulls = new Uint8Array(Buffer.from(nullifiers.valueOf()));
-    // console.log("claim::nulls", nulls);
+    let _nullifiers = this.nullifiers.get();
+    this.nullifiers.assertEquals(_nullifiers);
 
-    // now send value to the account
-    // this.sendTokens(this.address, account.publicKey, UInt64.one);
-    // this.mint(account.publicKey, UInt64.one);
+    // const initialRoot = (this.nullifiers as unknown as MerkleMap).getRoot();
+    // console.log({ initialRoot })
+
+    // eslint-disable-next-line no-unused-vars
+    const [rootBefore, key] = mmWitness.computeRootAndKey(Field.zero);
+    key.assertEquals(Field.zero);
+    // rootBefore.assertEquals(_nullifiers.getRoot());
+
+    // compute the root after setting nullifier flag
+    // eslint-disable-next-line no-unused-vars
+    const [rootAfter, _] = mmWitness.computeRootAndKey(Field.one);
+
+    // set the new root
+    this.nullifiers.set(rootAfter);
+
+    console.log({ signature });
+
+    // now send tokens to the account
+    // this.mint(account.publicKey, UInt64.one, signature);
   }
 }
