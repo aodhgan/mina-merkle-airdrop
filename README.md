@@ -14,9 +14,9 @@ Once the contract is deployed the following functionality is exposed:
 ```js
 checkSetInclusion(account: Account, path: MerkleWitnessInstance)
 ```
-where: \ 
+where:\
 `account` is the account you want to check \
-`path` is the merkle tree path and is generated off-chain \
+`path` is the merkle tree path and is generated off-chain 
 
 This method will throw if the account is not included in the airdrop data set. 
 
@@ -27,7 +27,7 @@ checkClaimed(account: Account, path: MerkleMapWitness): bigint
 ```
 where: \
 `account` is the account you want to check \
-`path` is the merkle map witness and is generated off-chain \
+`path` is the merkle map witness and is generated off-chain
 
 This method will return 1 if already claimed, 0 otherwise. 
 
@@ -40,10 +40,11 @@ This method will return 1 if already claimed, 0 otherwise.
     mmWitness: MerkleMapWitness
   )
 ```
-where: \ 
+where:
+
 `account` is the account you want to check \
 `path` is the merkle tree path and is generated off-chain \
-`signature` is an `account` private key signed permission slip to claim \ 
+`signature` is an `account` private key signed permission slip to claim \
 `mmWitness` is a Merkle Map witness to correctly prove the airdrop has not already been claimed
 
 ## Admin Functionality
@@ -59,7 +60,7 @@ mint(
 where: \
 `receiverAddress` is receiving address \
 `amount` is the amount of tokens to mint \
-`adminSignature` is the admin private key signed permission slip \
+`adminSignature` is the admin private key signed permission slip 
 
 
 ### Set Merkle Root commitment
